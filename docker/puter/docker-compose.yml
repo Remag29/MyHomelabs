@@ -1,0 +1,21 @@
+---
+services:
+  puter:
+    container_name: puter
+    image: ghcr.io/heyputer/puter:latest
+    pull_policy: always
+    # build: ./
+    restart: unless-stopped
+    ports:
+      - '4100:4100'
+    env_file:
+      - .env
+    volumes:
+      - ./config:/etc/puter
+      - ./data:/var/puter
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://puter.localhost:4100/test || exit 1
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
