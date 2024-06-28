@@ -1,0 +1,31 @@
+---
+services:
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    depends_on:
+      - tailscale-gethomepage
+    network_mode: service:tailscale-gethomepage
+    volumes:
+      - ./config:/app/config # Make sure your local config directory exists
+      - ./images:/app/public/images # Provide image
+      - /var/run/docker.sock:/var/run/docker.sock # For docker integrations
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  tailscale-gethomepage:
+    image: tailscale/tailscale:latest
+    hostname: tailscale-gethomepage
+    environment:
+      - TS_AUTHKEY=CHANGE_ME
+      - TS_EXTRA_ARGS=--advertise-tags=tag:container
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ./tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
