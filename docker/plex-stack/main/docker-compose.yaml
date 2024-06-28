@@ -1,0 +1,44 @@
+networks:
+  plex-stack:
+    external: true
+  frontend:
+    external: true
+
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    devices: [/dev/dri] # GPU transcoding
+    privileged: true
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - VERSION=docker
+      #- PLEX_CLAIM=CHANGEME
+    volumes:
+      - ./plex/config:/config
+      - /mnt/md0/storage/media/series:/tv
+      - /mnt/md0/storage/media/movies:/movies
+      - /mnt/md0/storage/media/animes:/anime
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  tautulli:
+    image: ghcr.io/tautulli/tautulli:latest
+    container_name: tautulli
+    restart: unless-stopped
+    volumes:
+      - ./tautulli/config:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    networks:
+      - plex-stack
+    ports:
+      - 8181:8181
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"

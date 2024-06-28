@@ -1,0 +1,159 @@
+networks:
+  plex-stack:
+    external: true
+  frontend:
+    external: true
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - 6767:6767 # Bazarr
+      - 7878:7878 # Radarr
+      - 8080:8080 # qbittorrent
+      - 8989:8989 # Sonarr
+      - 9117:9117 # jackett
+    networks:
+      - plex-stack
+    volumes:
+      - ./gluetun:/gluetun
+      - ./gluetun/tmp/gluetun:/tmp/gluetun
+    env_file:
+      - .env.gluetun
+    restart: always
+
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - WEBUI_PORT=8080
+    volumes:
+      - ./qbittorrent/config:/config
+      - /mnt/md0/storage/qbittorrent/downloads:/downloads
+    network_mode: "service:gluetun" # run on the vpn network
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - ./overseer/config:/config
+    networks:
+      - plex-stack
+      - frontend
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  jackett:
+    image: linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - AUTO_UPDATE=true #optional
+    volumes:
+      - ./jackett/config:/config
+      - ./jackett/downloads:/downloads
+    network_mode: service:gluetun # run on the vpn network
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - ./radarr/config:/config
+      - /mnt/md0/storage/media/movies:/data/movies
+      - /mnt/md0/storage/qbittorrent/downloads:/data/downloads
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - ./sonarr/config:/config
+      - /mnt/md0/storage/media/series:/data/series
+      - /mnt/md0/storage/media/animes:/data/animes
+      - /mnt/md0/storage/qbittorrent/downloads:/data/downloads
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    network_mode: "service:gluetun"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+    volumes:
+      - ./bazarr/config:/config
+      - /mnt/md0/storage/media/movies:/movies #optional
+      - /mnt/md0/storage/media/series:/tv #optional
+      - /mnt/md0/storage/media/animes:/anime #optional
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  flaresolverr:
+    # Capchat bypasser for jacket
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_HTML=${LOG_HTML:-false}
+      - CAPTCHA_SOLVER=${CAPTCHA_SOLVER:-none}
+      - TZ=Europe/Paris
+    network_mode: service:gluetun # run on the vpn network
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    restart: always
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  gluetun-qbittorrent-port-manager:
+    image: snoringdragon/gluetun-qbittorrent-port-manager:latest
+    container_name: "gluetun-qbittorrent-port-manager"
+    restart: unless-stopped
+    volumes:
+      - ./gluetun/tmp/gluetun:/tmp/gluetun #Set "yourfolder" to the same directory you used for Gluetun
+    network_mode: "service:gluetun"
+    env_file:
+      - .env.qbittorrent-port-manager

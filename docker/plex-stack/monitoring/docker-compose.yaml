@@ -1,0 +1,34 @@
+networks:
+  plex-stack:
+    external: true
+  frontend:
+    external: true
+
+services:
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    networks:
+      - frontend
+      - plex-stack
+    volumes:
+      - ./homepage/config:/app/config # Make sure your local config directory exists
+      - /var/run/docker.sock:/var/run/docker.sock # For docker integrations
+      - ./homepage/images:/app/public/images # Provide image
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  cloudflaretunnel:
+    container_name: cloudflaretunnel
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    env_file:
+      - .CFTunnel.env
+    command: tunnel --no-autoupdate run
+    networks:
+      - frontend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
