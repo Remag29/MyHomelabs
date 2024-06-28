@@ -1,0 +1,16 @@
+networks:
+  external_frontend:
+    external: true
+
+services:
+  cloudflaretunnel:
+    container_name: cloudflaretunnel
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: tunnel --no-autoupdate run
+    networks:
+      - external_frontend
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
