@@ -1,0 +1,63 @@
+---
+services:
+
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:main
+    environment:
+      - TZ=Europe/Paris
+    volumes:
+      - /var/log:/var/log
+      - ./promtail:/etc/promtail
+    depends_on:
+      - ${TS_HOSTNAME:-tailscale-monitoring}
+    network_mode: service:${TS_HOSTNAME:-tailscale-monitoring}
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    restart: unless-stopped
+
+  node_exporter:
+    container_name: node_exporter
+    image: quay.io/prometheus/node-exporter:latest
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    volumes:
+      - '/:/host:ro,rslave'
+    depends_on:
+      - ${TS_HOSTNAME:-tailscale-monitoring}
+    network_mode: service:${TS_HOSTNAME:-tailscale-monitoring}
+    restart: unless-stopped
+
+  cadvisor:
+    container_name: cadvisor
+    image: gcr.io/cadvisor/cadvisor:latest
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    depends_on:
+      - ${TS_HOSTNAME:-tailscale-monitoring}
+    network_mode: service:${TS_HOSTNAME:-tailscale-monitoring}
+    privileged: true
+    restart: unless-stopped
+
+  ${TS_HOSTNAME:-tailscale-monitoring}:
+    hostname: ${TS_HOSTNAME:-tailscale-monitoring}
+    image: tailscale/tailscale:latest
+    environment:
+      - TZ=Europe/Paris
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_EXTRA_ARGS=--advertise-tags=tag:container
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - ./tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
