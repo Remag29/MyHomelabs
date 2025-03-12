@@ -1,0 +1,27 @@
+id: ansible_apt_update
+namespace: servers
+description: Update apt repositories (like 'apt update')
+
+tasks:
+  - id: ansible_tasks
+    type: io.kestra.plugin.ansible.cli.AnsibleCLI
+    inputFiles:
+      inventory.ini: "{{ read('ansible/inventory.ini') }}"
+      playbook.yaml: "{{ read('ansible/playbooks/apt-update.yaml') }}"
+      id_ed25519: "{{ secret('KESTRA_SSH_PRIVATE_KEY') }}"
+    commands:
+      - ansible-playbook -i inventory.ini --key-file id_ed25519 playbook.yaml
+    env:
+      ANSIBLE_HOST_KEY_CHECKING: "False"
+      ANSIBLE_REMOTE_USER: "kestra"
+      ANSIBLE_SUDO_PASS: "{{ secret('ANSIBLE_SUDO_PASS')}}"
+    taskRunner:
+      type: io.kestra.plugin.scripts.runner.docker.Docker
+      pullPolicy: IF_NOT_PRESENT
+      networkMode: host # Mandatory for tailscale access
+      user: "1000"
+
+triggers:
+  - id: schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "@daily"
