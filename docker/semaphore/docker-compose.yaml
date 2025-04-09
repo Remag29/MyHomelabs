@@ -1,0 +1,44 @@
+---
+services:
+  semaphore:
+    container_name: semaphore
+    image: semaphoreui/semaphore:v2.13.12
+    restart: unless-stopped
+    network_mode: service:tailscale-semaphore
+    environment:
+      SEMAPHORE_DB_DIALECT: bolt
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_PASSWORD: ${SEMAPHORE_ADMIN_PASSWORD}
+      SEMAPHORE_ADMIN_NAME: Admin
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+    volumes:
+      - semaphore_data:/var/lib/semaphore
+      - semaphore_config:/etc/semaphore
+    depends_on:
+      - tailscale-semaphore
+
+  tailscale:
+    container_name: tailscale-semaphore
+    image: tailscale/tailscale:latest
+    hostname: semaphore
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_EXTRA_ARGS=--advertise-tags=tag:container
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=false
+    volumes:
+      - semaphore-Tailscale:/var/lib/tailscale
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    restart: unless-stopped
+
+ volumes:
+  semaphore-Tailscale:
+    driver: local
+  semaphore_data:
+    driver: local
+  semaphore_config:
+    driver: local
